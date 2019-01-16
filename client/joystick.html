@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+   <head>
+      <title>touch event example</title>
+      <meta charset="utf-8"/>
+   </head>
+   <body>
+      <canvas id="canvas" width="400" height="400" style="border:solid black 3px; border-radius:100%;">
+         Your browser does not support canvas element.
+      </canvas>
+      <br>
+      <br>
+   </body>
+   <script>
+		
+		let ws = new WebSocket("ws://10.100.102.14:8080"); // esp32 ip route
+		let canvas = document.getElementById("canvas"),
+		ongoingTouches = [],
+		middleCircle = {},
+		
+		isWSactive = false;
+      	ctx = canvas.getContext("2d");
+		initMiddleCircle();
+		renderMiddleCircle();
+		
+		function initMiddleCircle() {
+			middleCircle.x = canvas.width/2;
+			middleCircle.y = canvas.height/2;
+			middleCircle.radius = (canvas.width + canvas.height) * 0.04;
+			middleCircle.color = 'gray';
+		}
+		
+		function renderMiddleCircle() {
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.beginPath();
+			ctx.arc(middleCircle.x, middleCircle.y, middleCircle.radius, 0, 2 * Math.PI, false);
+			ctx.fillStyle = middleCircle.color;
+			ctx.fill();
+			sendToWebsocket();
+		}
+		
+		// handle events
+		canvas.addEventListener("touchstart", handleStart, false);
+		canvas.addEventListener("touchend", handleEnd, false);
+		canvas.addEventListener("touchmove", handleMove, false);
+      
+		function handleStart(evt) {
+			evt.preventDefault();
+			
+			elemLeft = canvas.offsetLeft,
+			elemTop = canvas.offsetTop;
+
+			let touches = evt.changedTouches;
+			for (var i = 0; i < touches.length; i++) {
+				const x = touches[i].pageX - elemLeft, y = touches[i].pageY - elemTop;	
+				if ( Math.abs(middleCircle.x - x) < middleCircle.radius && Math.abs(middleCircle.y - y) < middleCircle.radius){
+					console.log("touch inside of circle");
+					middleCircle.color = "cornflowerBlue";
+					renderMiddleCircle();
+				}
+		   }
+      }
+      
+      function handleMove(evt) {
+		evt.preventDefault();
+		elemLeft = canvas.offsetLeft,
+		elemTop = canvas.offsetTop;
+
+		let touches = evt.changedTouches;
+		for (var i = 0; i < touches.length; i++) {
+			const x = touches[i].pageX - elemLeft, y = touches[i].pageY - elemTop;	
+			if(x < 0 || y < 0 || x > canvas.width || y > canvas.height) {
+				return;
+			}
+			if ( Math.abs(middleCircle.x - x) < middleCircle.radius && Math.abs(middleCircle.y - y) < middleCircle.radius){
+				middleCircle.x = x;
+				middleCircle.y = y;
+				renderMiddleCircle();
+			}
+		}	
+      }
+      
+      function handleEnd(evt) {
+		evt.preventDefault();
+		initMiddleCircle();
+		renderMiddleCircle();
+      }
+	  
+	  function sendToWebsocket() {
+		const straight = (-1 * (middleCircle.y - canvas.height/2)/2).toFixed(),
+		vertical = ((middleCircle.x - canvas.width/2)/2).toFixed();
+		console.log(straight, vertical);	
+		if(isWSactive) {
+			ws.send(straight +" "+ vertical);
+		}
+	  }
+	  ws.onopen = () => {isWSactive = true;};
+	  ws.onclose = () => { isWSactive = false; console.log("Connection is closed..."); };
+      
+   </script>
+</html>
